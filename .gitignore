@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.venv-build/
+*.egg-info/
+.pytest_cache/
+backend/asset_management.db
+backend/frontend_dist/
+backend/build/
+backend/dist/
+
+# Node / 前端
+node_modules/
+frontend/dist/
+.vite/
+
+# 桌面打包产物
+*.tar.gz
+*.zip
+
+# 环境与编辑器
+.env
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
