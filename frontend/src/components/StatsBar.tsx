@@ -1,7 +1,12 @@
 import type { StockStats } from "../types";
 
 const currency = (value: number) =>
-  value.toLocaleString("zh-CN", { style: "currency", currency: "CNY", maximumFractionDigits: 0 });
+  value.toLocaleString("zh-CN", {
+    style: "currency",
+    currency: "CNY",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
 
 export function StatsBar({ stats }: { stats: StockStats | null }) {
   const cards = [
