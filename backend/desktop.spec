@@ -4,7 +4,12 @@
 在 backend/ 目录下执行：
     pyinstaller --noconfirm desktop.spec
 产物位于 backend/dist/AssetManagement/。
+
+诊断打包时（需要看启动报错）可设：
+    AMS_DESKTOP_CONSOLE=1 pyinstaller --noconfirm desktop.spec
 """
+
+import os
 
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
@@ -19,7 +24,7 @@ hiddenimports += [
     "uvicorn.lifespan.on",
     "sqlalchemy.dialects.sqlite",
     "pydantic_settings",
-    # pywebview Qt 后端
+    # pywebview / Qt（Linux 主后端；Windows 作 WebView2 失败时的回退）
     "webview",
     "qtpy",
     "PyQt5",
@@ -28,15 +33,30 @@ hiddenimports += [
     "PyQt5.QtWidgets",
     "PyQt5.QtWebEngineWidgets",
     "PyQt5.QtWebEngineCore",
+    # Windows WebView2（edgechromium）常用依赖
+    "clr_loader",
+    "pythonnet",
 ]
 
-# 收集 webview 的静态资源（含其注入脚本）
+# 收集 webview + PyQt5 的静态资源与二进制（缺 WebEngine/qwindows 会导致白屏）
 datas = [("frontend_dist", "frontend_dist")]
 binaries = []
-wv_datas, wv_binaries, wv_hidden = collect_all("webview")
-datas += wv_datas
-binaries += wv_binaries
-hiddenimports += wv_hidden
+for pkg in ("webview", "PyQt5"):
+    try:
+        pkg_datas, pkg_binaries, pkg_hidden = collect_all(pkg)
+    except Exception:  # noqa: BLE001 - 环境未装该包时跳过
+        continue
+    datas += pkg_datas
+    binaries += pkg_binaries
+    hiddenimports += pkg_hidden
+
+# 默认无控制台；设 AMS_DESKTOP_CONSOLE=1 便于排查启动失败
+console = os.environ.get("AMS_DESKTOP_CONSOLE", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 a = Analysis(
     ["app/desktop.py"],
@@ -63,7 +83,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    console=False,
+    console=console,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

@@ -35,11 +35,37 @@ def _wait_until_ready(url: str, timeout: float = 30.0) -> None:
     raise RuntimeError("本地服务启动超时")
 
 
-def _open_window(url: str, server_thread: threading.Thread) -> None:
-    # 强制使用 Qt 后端，避免依赖系统 WebView / GTK，便于跨平台打包
-    import os
+def _configure_webview_gui() -> None:
+    """按平台选择 pywebview 后端。
 
+    Windows 优先系统 WebView2（edgechromium），不要强制 Qt：
+    强制 Qt 时必须完整打进 WebEngine，否则常见白屏/起不来且 console=False 时无报错。
+    Linux/macOS 仍用 Qt，便于与打包脚本一致、少依赖系统 WebKit。
+    """
+    import os
+    import sys
+
+    if sys.platform.startswith("win"):
+        # 不强制 Qt；已设置的 PYWEBVIEW_GUI 仍尊重，便于本机排障
+        return
     os.environ.setdefault("PYWEBVIEW_GUI", "qt")
+
+
+def _log_gui_fallback(exc: BaseException) -> None:
+    """GUI 失败时写日志，避免打包后 console=False 完全吞掉错误。"""
+    from pathlib import Path
+
+    from app.core.config import DATA_DIR
+
+    try:
+        log_path = Path(DATA_DIR) / "desktop-gui-fallback.log"
+        log_path.write_text(f"{type(exc).__name__}: {exc}\n", encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _open_window(url: str, server_thread: threading.Thread) -> None:
+    _configure_webview_gui()
     try:
         import webview
 
@@ -51,7 +77,8 @@ def _open_window(url: str, server_thread: threading.Thread) -> None:
             min_size=(1024, 680),
         )
         webview.start()
-    except Exception:  # noqa: BLE001 - 无 GUI 时退回浏览器
+    except Exception as exc:  # noqa: BLE001 - 无 GUI 时退回浏览器
+        _log_gui_fallback(exc)
         webbrowser.open(url)
         try:
             server_thread.join()

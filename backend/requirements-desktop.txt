@@ -1,3 +1,3 @@
 -r requirements.txt
-# pywebview 使用 Qt(WebEngine) 后端，Linux/Windows 均可 pip 独立安装并打包
+# Linux/macOS：Qt(WebEngine)。Windows：运行时优先系统 WebView2，Qt 作打包回退。
 pywebview[qt]==5.3.2

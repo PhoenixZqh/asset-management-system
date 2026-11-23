@@ -34,11 +34,16 @@ DATA_DIR = _user_data_dir()
 FRONTEND_DIST = _resource_dir() / "frontend_dist"
 
 
+def _sqlite_url(db_path: Path) -> str:
+    # Windows 路径含反斜杠时，统一用 POSIX 形式写入 URL，避免驱动/解析歧义
+    return f"sqlite:///{db_path.resolve().as_posix()}"
+
+
 def _default_database_url() -> str:
     # 打包后的桌面版写入用户数据目录；开发态沿用项目内数据库，保留既有数据
     if _is_frozen():
-        return f"sqlite:///{_user_data_dir() / 'asset_management.db'}"
-    return f"sqlite:///{BASE_DIR / 'asset_management.db'}"
+        return _sqlite_url(_user_data_dir() / "asset_management.db")
+    return _sqlite_url(BASE_DIR / "asset_management.db")
 
 
 class Settings(BaseSettings):
