@@ -24,6 +24,9 @@ hiddenimports += [
     "uvicorn.lifespan.on",
     "sqlalchemy.dialects.sqlite",
     "pydantic_settings",
+    # setuptools/pkg_resources → jaraco.context 需要（Linux/Windows 缺则启动即 ModuleNotFoundError）
+    "backports",
+    "backports.tarfile",
     # pywebview / Qt（Linux 主后端；Windows 作 WebView2 失败时的回退）
     "webview",
     "qtpy",
@@ -38,10 +41,10 @@ hiddenimports += [
     "pythonnet",
 ]
 
-# 收集 webview + PyQt5 的静态资源与二进制（缺 WebEngine/qwindows 会导致白屏）
+# 收集 webview + PyQt5 + backports 的资源（缺 WebEngine/qwindows 会白屏；缺 backports 会启动失败）
 datas = [("frontend_dist", "frontend_dist")]
 binaries = []
-for pkg in ("webview", "PyQt5"):
+for pkg in ("webview", "PyQt5", "backports.tarfile"):
     try:
         pkg_datas, pkg_binaries, pkg_hidden = collect_all(pkg)
     except Exception:  # noqa: BLE001 - 环境未装该包时跳过
