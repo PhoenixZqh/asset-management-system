@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path, PureWindowsPath
 from unittest import mock
 
@@ -56,3 +57,46 @@ def test_desktop_spec_collects_pyqt5_and_console_flag() -> None:
     assert 'collect_all(pkg)' in text or 'collect_all("PyQt5")' in text
     assert "AMS_DESKTOP_CONSOLE" in text
     assert "pythonnet" in text
+
+
+def test_ensure_stdio_for_windowed_mode() -> None:
+    """PyInstaller console=False / pythonw 下 stdout/stderr 为 None，须先补上。"""
+    from app import desktop
+
+    real_out, real_err = sys.stdout, sys.stderr
+    try:
+        sys.stdout = None  # type: ignore[assignment]
+        sys.stderr = None  # type: ignore[assignment]
+        desktop._ensure_stdio()
+        assert sys.stdout is not None
+        assert sys.stderr is not None
+        assert hasattr(sys.stdout, "isatty")
+        assert hasattr(sys.stderr, "isatty")
+        assert sys.stdout.isatty() is False
+        assert sys.stderr.isatty() is False
+    finally:
+        sys.stdout, sys.stderr = real_out, real_err
+
+
+def test_uvicorn_config_survives_none_stdio() -> None:
+    """无控制台时 uvicorn.Config 不得因 ColourizedFormatter.isatty 崩溃。"""
+    import uvicorn
+
+    from app import desktop
+
+    real_out, real_err = sys.stdout, sys.stderr
+    try:
+        sys.stdout = None  # type: ignore[assignment]
+        sys.stderr = None  # type: ignore[assignment]
+        desktop._ensure_stdio()
+        # 与 desktop.main 相同参数；能构造成功即过
+        config = uvicorn.Config(
+            "app.main:app",
+            host="127.0.0.1",
+            port=0,
+            log_level="warning",
+            use_colors=False,
+        )
+        assert config is not None
+    finally:
+        sys.stdout, sys.stderr = real_out, real_err

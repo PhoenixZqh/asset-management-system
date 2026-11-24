@@ -6,7 +6,9 @@
 
 from __future__ import annotations
 
+import os
 import socket
+import sys
 import threading
 import time
 import urllib.request
@@ -15,6 +17,18 @@ import webbrowser
 import uvicorn
 
 from app.core.config import settings
+
+
+def _ensure_stdio() -> None:
+    """无控制台环境（PyInstaller console=False / pythonw）下补齐 stdio。
+
+    此时 sys.stdout / sys.stderr 为 None，uvicorn ColourizedFormatter 调用
+    isatty() 会直接崩溃。按 PyInstaller 官方建议重定向到 os.devnull。
+    """
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w")  # noqa: SIM115
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w")  # noqa: SIM115
 
 
 def _free_port() -> int:
@@ -42,9 +56,6 @@ def _configure_webview_gui() -> None:
     强制 Qt 时必须完整打进 WebEngine，否则常见白屏/起不来且 console=False 时无报错。
     Linux/macOS 仍用 Qt，便于与打包脚本一致、少依赖系统 WebKit。
     """
-    import os
-    import sys
-
     if sys.platform.startswith("win"):
         # 不强制 Qt；已设置的 PYWEBVIEW_GUI 仍尊重，便于本机排障
         return
@@ -87,10 +98,18 @@ def _open_window(url: str, server_thread: threading.Thread) -> None:
 
 
 def main() -> None:
+    _ensure_stdio()
     from app.main import app
 
     port = _free_port()
-    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
+    # use_colors=False：避免无 TTY / None stdio 时 ColourizedFormatter 再踩 isatty
+    config = uvicorn.Config(
+        app,
+        host="127.0.0.1",
+        port=port,
+        log_level="warning",
+        use_colors=False,
+    )
     server = uvicorn.Server(config)
     server_thread = threading.Thread(target=server.run, daemon=True)
     server_thread.start()
